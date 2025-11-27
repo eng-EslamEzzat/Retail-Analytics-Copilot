@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+*.db
+*.sqlite
+*.sqlite3
+# Keep northwind.sqlite but ignore other DB files
+!data/northwind.sqlite
+
+# Output files (optional - you may want to track these)
+# outputs_hybrid.jsonl
+
+# Logs
+*.log
+
