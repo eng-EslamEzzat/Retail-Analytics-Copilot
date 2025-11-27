@@ -21,8 +21,8 @@ from agent.tools.sqlite_tool import SQLiteTool
 
 
 CAMPAIGN_DATE_RANGES = {
-    "summer beverages 1997": ("1997-06-01", "1997-06-30"),
-    "winter classics 1997": ("1997-12-01", "1997-12-31"),
+    "summer beverages 1997": ("2017-06-01", "2017-06-30"),
+    "winter classics 1997": ("2017-12-01", "2017-12-31"),
 }
 
 
@@ -293,7 +293,7 @@ class HybridAgent:
             constraints["metric"] = "aov"
 
         if "1997" in lower_q and "year" not in constraints:
-            constraints["year"] = "1997"
+            constraints["year"] = "2017"
 
         constraints["doc_citations"] = list(doc_cites)
         return constraints
@@ -302,7 +302,7 @@ class HybridAgent:
         q = question.lower()
         date_range = constraints.get("date_range")
         category = constraints.get("category")
-        year = constraints.get("year", "1997")
+        year = constraints.get("year", "2017")
 
         if "top 3 products" in q:
             return (

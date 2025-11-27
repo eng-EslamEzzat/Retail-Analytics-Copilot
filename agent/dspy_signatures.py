@@ -1,6 +1,7 @@
 """DSPy signatures and modules for the retail analytics copilot."""
 import json
 import re
+import ast
 from typing import Dict, Any, List, Optional, Tuple
 
 import dspy
@@ -25,7 +26,7 @@ class Planner(dspy.Signature):
     """Extract constraints and requirements from question and retrieved docs."""
     question = dspy.InputField(desc="The user's question")
     retrieved_docs = dspy.InputField(desc="Retrieved document chunks")
-    constraints = dspy.OutputField(desc="Extracted constraints: dates, KPIs, categories, entities as JSON")
+    constraints = dspy.OutputField(desc="Extracted constraints: dates, KPIs, categories, entities as JSON. Ensure valid JSON with double quotes.")
 
 
 class NLToSQL(dspy.Signature):
@@ -42,7 +43,7 @@ class Synthesizer(dspy.Signature):
     sql_results = dspy.InputField(desc="SQL query results (rows and columns)")
     retrieved_docs = dspy.InputField(desc="Retrieved document chunks")
     format_hint = dspy.InputField(desc="Expected output format")
-    final_answer = dspy.OutputField(desc="Final answer matching format_hint exactly")
+    final_answer = dspy.OutputField(desc="Final answer matching format_hint exactly. If returning JSON, ensure it is valid JSON with double quotes.")
     citations = dspy.OutputField(desc="List of citations: DB tables and doc chunk IDs")
 
 
@@ -79,7 +80,10 @@ class PlannerModule(dspy.Module):
         try:
             constraints = json.loads(result.constraints)
         except Exception:
-            constraints = {"raw": result.constraints}
+            try:
+                constraints = ast.literal_eval(result.constraints)
+            except Exception:
+                constraints = {"raw": result.constraints}
         return constraints
 
 
@@ -284,7 +288,11 @@ class SynthesizerModule(dspy.Module):
                 parsed = json.loads(candidate)
                 return parsed
             except Exception:
-                pass
+                # Fallback for Python-style dicts with single quotes
+                try:
+                    return ast.literal_eval(candidate)
+                except Exception:
+                    pass
         if format_hint == "int":
             try:
                 return int(float(answer_str.split()[0]))
