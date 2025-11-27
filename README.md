@@ -5,26 +5,27 @@ A local, free AI agent that answers retail analytics questions by combining RAG 
 ## Overview
 
 This project implements a hybrid agent using:
-- **LangGraph** for orchestration (6+ nodes with repair loop)
-- **DSPy** for optimized LLM modules (Router, NL→SQL, Synthesizer)
+- **LangGraph** for orchestration (8 nodes with validation + repair loop)
+- **DSPy** for optimized LLM modules (Router, Planner, NL→SQL, Synthesizer)
 - **TF-IDF** for document retrieval
 - **SQLite** for database queries
 
 ## Graph Design
 
-- **7-node LangGraph workflow**: Router (DSPy) → Retriever → Planner (DSPy) → SQL Generator (DSPy) → SQL Executor → Synthesizer (DSPy), with conditional routing based on question type
-- **Repair loop**: Automatically retries SQL generation up to 2 times on errors, improving resilience
-- **Hybrid routing**: Questions are classified as `rag`, `sql`, or `hybrid`, determining whether to use documents, database, or both
-- **Stateful execution**: Maintains context across nodes including retrieved docs, constraints, SQL results, and citations
+- **8-node LangGraph workflow**: Router → Retriever → Planner → SQL Generator → SQL Executor → Synthesizer → Validator → End/Repair. The validator enforces type-safe outputs and citation coverage before finalizing.
+- **Repair loop**: Automatically retries SQL generation up to 2 times when SQLite errors or validator failures occur.
+- **Hybrid routing**: Manual + DSPy router forces doc-only questions (policy) to RAG, campaign/KPI questions to hybrid, and pure SQL asks to DB only.
+- **Stateful execution**: Tracks retrieved chunks, campaign constraints, SQL traces, validator findings, and emits `traces/trace_<ts>.json` for auditing.
+- **Typed synthesis**: Deterministic formatter converts SQL rows into the requested schema and injects both DB table names and `doc::chunkN` citations.
 
 ## DSPy Optimization
 
-**Optimized Module**: NL→SQL Generator
+**Optimized Module**: NL→SQL Generator (BootstrapFewShot)
 
-- **Metric**: Valid SQL generation rate (syntax correctness + execution success)
-- **Before**: ~60% valid SQL on first attempt
-- **After**: ~85% valid SQL on first attempt (using BootstrapFewShot with 20 training examples)
-- **Method**: BootstrapFewShot optimizer trained on handcrafted question-SQL pairs covering common patterns (joins, aggregations, date filters, category filters)
+- **Metric**: Exact-match SQL on a 4-example handcrafted eval (joins, aggregations, date filters, category filters).
+- **Before**: 0.25 exact-match (plain Chain-of-Thought).
+- **After**: 1.00 exact-match post-optimization (training data embedded in `agent/dspy_signatures.py`).
+- **Method**: BootstrapFewShot compiles the program once per run and logs `[DSPy] NL→SQL accuracy 0.25 → 1.00`.
 
 ## Trade-offs & Assumptions
 
@@ -32,15 +33,8 @@ This project implements a hybrid agent using:
 
 2. **Chunking Strategy**: Documents are chunked at paragraph level. Small paragraphs (< 20 chars) are skipped.
 
-3. **Confidence Calculation**: Heuristic-based combining:
-   - Base: 0.5
-   - +0.2 if SQL succeeds
-   - +0.1 if SQL returns rows
-   - +0.1 * avg_retrieval_score for document relevance
-   - -0.1 per repair attempt
-
-4. **Repair Limit**: Maximum 2 repair attempts to prevent infinite loops.
-
+3. **Confidence Calculation**: Base 0.5, +0.3 for successful SQL execution, +0.1 for returned rows, +0.1 when doc evidence is cited, −0.1 per repair attempt.
+4. **Repair Limit**: Maximum 2 repair attempts (shared between SQL errors and validator-triggered fixes).
 5. **Local Model**: Uses Ollama with Phi-3.5-mini-instruct (3.8B parameters, Q4_K_M quantization) for local inference.
 
 ## Setup
@@ -84,6 +78,8 @@ This project implements a hybrid agent using:
 │   └── product_policy.md
 ├── sample_questions_hybrid_eval.jsonl
 ├── run_agent_hybrid.py           # Main entrypoint
+├── traces/
+│   └── trace_<timestamp>.json    # Execution logs/checkpoints
 └── requirements.txt
 ```
 
