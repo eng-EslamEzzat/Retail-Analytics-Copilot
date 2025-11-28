@@ -36,6 +36,8 @@ This project implements a hybrid agent using:
 3. **Confidence Calculation**: Base 0.5, +0.3 for successful SQL execution, +0.1 for returned rows, +0.1 when doc evidence is cited, −0.1 per repair attempt.
 4. **Repair Limit**: Maximum 2 repair attempts (shared between SQL errors and validator-triggered fixes).
 5. **Local Model**: Uses Ollama with Phi-3.5-mini-instruct (3.8B parameters, Q4_K_M quantization) for local inference.
+6. **Date Shift Handling**: The Northwind database provided contains data from 2016-2018, whereas the original dataset (and the sample questions) refer to 1996-1998. The agent automatically maps "1997" to "2017" in SQL queries to ensure correct results.
+7. **Robust JSON Parsing**: To handle the non-deterministic nature of smaller local models, the agent includes a robust parsing layer that can handle Python-style dictionaries (single quotes) and malformed JSON, falling back to `ast.literal_eval` when necessary.
 
 ## Setup
 
